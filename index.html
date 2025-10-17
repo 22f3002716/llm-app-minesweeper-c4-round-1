@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Minesweeper</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+  }
+  #game {
+    display: grid;
+    grid-template-columns: repeat(8, 40px);
+    grid-template-rows: repeat(8, 40px);
+    gap: 2px;
+  }
+  .cell {
+    width: 40px;
+    height: 40px;
+    background-color: #ccc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    cursor: pointer;
+    user-select: none;
+    font-size: 14px;
+    border: 1px solid #999;
+  }
+  .cell.revealed {
+    background-color: #eee;
+    cursor: default;
+  }
+  #status {
+    margin-top: 20px;
+  }
+</style>
+</head>
+<body>
+<h1 id="status"></h1>
+<div id="game"></div>
+<script>
+const size = 8;
+const minesCount = 10;
+const gameContainer = document.getElementById('game');
+const statusEl = document.getElementById('status');
+let mines = new Set();
+let board = [];
+let revealedCount = 0;
+let gameOver = false;
+
+function gardenRandomPositions(count, max) {
+  const positions = new Set();
+  while (positions.size < count) {
+    const pos = Math.floor(Math.random() * max);
+    positions.add(pos);
+  }
+  return positions;
+}
+
+function init() {
+  // Reset
+  mines.clear();
+  board = [];
+  revealedCount = 0;
+  gameOver = false;
+  statusEl.textContent = '';
+  // Place mines
+  mines = gardenRandomPositions(minesCount, size * size);
+  // Generate grid
+  gameContainer.innerHTML = '';
+  for (let row = 0; row < size; row++) {
+    for (let col = 0; col < size; col++) {
+      const index = row * size + col;
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.dataset.row = row;
+      cell.dataset.col = col;
+      cell.dataset.index = index;
+      cell.dataset.mined = mines.has(index) ? 'true' : 'false';
+      cell.addEventListener('click', onCellClick);
+      gameContainer.appendChild(cell);
+      if (!board[row]) board[row] = [];
+      board[row][col] = {
+        element: cell,
+        mined: mines.has(index),
+        revealed: false,
+        neighborMines: 0
+      };
+    }
+  }
+  // Calculate neighbor mines for each cell
+  for (let row = 0; row < size; row++) {
+    for (let col = 0; col < size; col++) {
+      let count = 0;
+      for (let dr = -1; dr <= 1; dr++) {
+        for (let dc = -1; dc <= 1; dc++) {
+          if (dr === 0 && dc === 0) continue;
+          const r = row + dr;
+          const c = col + dc;
+          if (r >= 0 && r < size && c >= 0 && c < size) {
+            if (board[r][c].mined) count++;
+          }
+        }
+      }
+      board[row][col].neighborMines = count;
+    }
+  }
+}
+
+function revealCell(row, col) {
+  const cellObj = board[row][col];
+  const cellEl = cellObj.element;
+  if (cellObj.revealed || gameOver) return;
+  cellObj.revealed = true;
+  cellEl.classList.add('revealed');
+  if (cellObj.mined) {
+    cellEl.textContent = '💣';
+    triggerGameOver();
+    revealAllMines();
+    return;
+  } else {
+    if (cellObj.neighborMines > 0) {
+      cellEl.textContent = cellObj.neighborMines;
+    } else {
+      // reveal neighbors recursively
+      for (let dr = -1; dr <= 1; dr++) {
+        for (let dc = -1; dc <= 1; dc++) {
+          if (dr === 0 && dc === 0) continue;
+          const r = row + dr;
+          const c = col + dc;
+          if (r >= 0 && r < size && c >= 0 && c < size) {
+            if (!board[r][c].revealed) {
+              revealCell(r, c);
+            }
+          }
+        }
+      }
+    }
+    revealedCount++;
+    if (revealedCount === size * size - minesCount) {
+      statusEl.textContent = 'Congratulations! You cleared the mines.';
+    }
+  }
+}
+
+function revealAllMines() {
+  for (const index of mines) {
+    const row = Math.floor(index / size);
+    const col = index % size;
+    const cell = board[row][col];
+    if (!cell.revealed) {
+      cell.element.classList.add('revealed');
+      cell.element.textContent = '💣';
+    }
+  }
+}
+
+function triggerGameOver() {
+  if (gameOver) return;
+  gameOver = true;
+  statusEl.textContent = 'BOOM! Game Over.';
+}
+
+function onCellClick(e) {
+  if (gameOver) return;
+  const row = parseInt(e.currentTarget.dataset.row);
+  const col = parseInt(e.currentTarget.dataset.col);
+  revealCell(row, col);
+}
+
+// Initialize game
+init();
+</script>
+</body>
+</html>
